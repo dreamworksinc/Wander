@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wander — Travel Companion</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --color-background-primary:#ffffff; --color-background-secondary:#F5F2EC; --color-background-tertiary:#EFEAE1;
+  --color-text-primary:#1C1917; --color-text-secondary:#57534E; --color-text-tertiary:#A8A29E;
+  --color-border-tertiary:rgba(28,25,23,0.12); --color-border-secondary:rgba(28,25,23,0.22);
+  --border-radius-md:8px; --border-radius-lg:12px; --accent:#C2692A;
+}
+body { font-family:'Figtree',system-ui,sans-serif; color:var(--color-text-primary); background:var(--color-background-tertiary); }
+.wrap { max-width:760px; margin:0 auto; min-height:100vh; background:var(--color-background-tertiary); box-shadow:0 0 40px rgba(0,0,0,0.06); }
+h1,h2,h3 { font-family:'Fraunces',Georgia,serif; }
+
+.top-bar { background:var(--color-background-primary); border-bottom:0.5px solid var(--color-border-tertiary); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; position:sticky; top:0; z-index:5; }
+.tb-left { display:flex; align-items:center; gap:10px; min-width:0; }
+.back-btn { background:none; border:0.5px solid var(--color-border-secondary); border-radius:20px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--color-text-secondary); flex-shrink:0; }
+.back-btn:hover { border-color:var(--accent); color:var(--accent); }
+.trip-title { font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px; min-width:0; font-family:'Fraunces',serif; }
+.trip-title span.nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.trip-sub { font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
+.add-btn { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; padding:8px 15px; border-radius:20px; background:var(--accent); color:white; border:none; cursor:pointer; flex-shrink:0; }
+.add-btn:hover { opacity:.88; }
+.add-btn i { font-size:15px; }
+
+.tab-strip { display:flex; background:var(--color-background-primary); border-top:0.5px solid var(--color-border-tertiary); position:fixed; bottom:0; left:0; right:0; z-index:30; box-shadow:0 -2px 12px rgba(0,0,0,.06); padding-bottom:env(safe-area-inset-bottom); }
+.tab { flex:1; padding:10px 4px; text-align:center; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--color-text-tertiary); cursor:pointer; border-top:2px solid transparent; display:flex; flex-direction:column; align-items:center; gap:3px; transition:all .13s; }
+.tab i { font-size:18px; }
+.tab.on { color:var(--accent); border-top-color:var(--accent); }
+.tab:hover:not(.on) { color:var(--color-text-secondary); }
+
+.trips-header { padding:22px 16px 6px; }
+.trips-header h1 { font-size:24px; font-weight:600; }
+.trips-header p { font-size:13px; color:var(--color-text-secondary); margin-top:3px; font-family:'Figtree',sans-serif; }
+.trips-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; padding:14px 16px 24px; }
+.trip-card { border-radius:var(--border-radius-lg); border:0.5px solid var(--color-border-tertiary); overflow:hidden; cursor:pointer; background:var(--color-background-primary); transition:transform .14s; }
+.trip-card:hover { transform:translateY(-3px); }
+.trip-cover { height:100px; display:flex; align-items:center; justify-content:center; font-size:48px; position:relative; }
+.trip-status { position:absolute; top:8px; right:9px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:3px 9px; border-radius:20px; background:rgba(255,255,255,.92); }
+.trip-edit { position:absolute; top:8px; left:9px; width:26px; height:26px; border-radius:50%; background:rgba(255,255,255,.92); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#57534E; font-size:14px; }
+.trip-edit:hover { color:#C2692A; }
+.trip-card-body { padding:12px 14px 14px; }
+.trip-card-name { font-size:16px; font-weight:600; font-family:'Fraunces',serif; }
+.trip-card-loc { font-size:12px; color:var(--color-text-secondary); margin-top:3px; display:flex; align-items:center; gap:4px; }
+.trip-card-loc i { font-size:13px; }
+.trip-card-foot { display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:0.5px solid var(--color-border-tertiary); }
+.trip-card-dates { font-size:11px; color:var(--color-text-tertiary); }
+.trip-card-count { font-size:11px; font-weight:600; color:var(--accent); display:flex; align-items:center; gap:3px; }
+.trip-card-count i { font-size:13px; }
+.new-trip-card { border:1.5px dashed var(--color-border-secondary); border-radius:var(--border-radius-lg); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; color:var(--color-text-secondary); min-height:198px; transition:all .15s; }
+.new-trip-card:hover { border-color:var(--accent); color:var(--accent); background:#FFF7F0; }
+.new-trip-card i { font-size:32px; margin-bottom:8px; }
+.new-trip-card span { font-size:13px; font-weight:600; }
+
+.panel { padding:14px 16px calc(80px + env(safe-area-inset-bottom)); }
+.day-header { display:flex; align-items:center; gap:10px; margin:14px 0 9px; }
+.day-badge { background:var(--accent); color:white; font-size:11px; font-weight:700; padding:3px 11px; border-radius:20px; white-space:nowrap; }
+.day-date { font-size:12px; color:var(--color-text-tertiary); }
+.ev-card { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:11px 13px; margin-bottom:8px; display:flex; gap:12px; align-items:flex-start; }
+.ev-time { font-size:11px; font-weight:700; color:var(--color-text-tertiary); min-width:44px; padding-top:2px; }
+.ev-content { flex:1; min-width:0; }
+.ev-name { font-weight:600; font-size:14px; }
+.ev-detail { font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
+.ev-tag { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; margin-top:6px; text-transform:uppercase; letter-spacing:.3px; }
+.ev-del { background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); font-size:15px; padding:2px; }
+.ev-del:hover { color:#A32D2D; }
+.ev-link { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:4px 11px; border-radius:20px; background:#E6F1FB; color:#185FA5; text-decoration:none; }
+.ev-link:hover { background:#D4E8FB; }
+.ev-link i { font-size:12px; }
+.dir-btn { font-size:12px; font-weight:600; padding:7px 13px; border-radius:20px; border:0.5px solid var(--color-border-secondary); background:transparent; color:var(--color-text-primary); cursor:pointer; font-family:inherit; }
+.dir-btn:hover { background:var(--color-background-secondary); border-color:#C2692A; color:#C2692A; }
+.photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.photo-tile { position:relative; aspect-ratio:1; border-radius:var(--border-radius-md); overflow:hidden; cursor:pointer; background:var(--color-background-secondary); }
+.photo-tile img { width:100%; height:100%; object-fit:cover; display:block; }
+.photo-cap { position:absolute; left:0; right:0; bottom:0; padding:12px 7px 5px; font-size:10px; line-height:1.3; color:#fff; background:linear-gradient(transparent, rgba(0,0,0,.66)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.mem-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+.filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.chip { font-size:11px; font-weight:700; padding:4px 11px; border-radius:20px; border:0.5px solid var(--color-border-secondary); background:transparent; color:var(--color-text-secondary); cursor:pointer; transition:all .12s; letter-spacing:.3px; text-transform:uppercase; }
+.chip.on { background:#1C1917; color:#F5F0E8; border-color:#1C1917; }
+.mem-card { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); overflow:hidden; cursor:pointer; transition:transform .13s; }
+.mem-card:hover { transform:translateY(-2px); }
+.mem-thumb { width:100%; aspect-ratio:4/3; display:flex; align-items:center; justify-content:center; font-size:46px; position:relative; }
+.cat-badge { position:absolute; top:7px; left:8px; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; }
+.rating-badge { position:absolute; top:7px; right:8px; font-size:11px; font-weight:700; background:rgba(0,0,0,.5); color:#FAC775; padding:2px 7px; border-radius:20px; display:flex; align-items:center; gap:3px; }
+.doc-badge { position:absolute; bottom:7px; right:8px; font-size:10px; font-weight:700; background:rgba(0,0,0,.5); color:#fff; padding:2px 7px; border-radius:20px; display:flex; align-items:center; gap:3px; }
+.mem-body { padding:9px 11px 11px; }
+.mem-name { font-size:13px; font-weight:600; }
+.mem-loc { font-size:11px; color:var(--color-text-secondary); margin-top:2px; display:flex; align-items:center; gap:3px; }
+.mem-loc i { font-size:12px; }
+.mem-caption { font-size:12px; color:var(--color-text-secondary); margin-top:5px; line-height:1.45; }
+.mem-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; }
+.mem-tag { font-size:10px; padding:2px 7px; border-radius:20px; border:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary); }
+.mem-footer { display:flex; align-items:center; justify-content:space-between; margin-top:8px; padding-top:7px; border-top:0.5px solid var(--color-border-tertiary); }
+.mem-date { font-size:10px; color:var(--color-text-tertiary); display:flex; align-items:center; gap:3px; }
+.mem-date i { font-size:12px; }
+.mem-actions { display:flex; gap:6px; }
+.icon-btn { background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); font-size:15px; padding:2px; transition:color .12s; }
+.icon-btn:hover { color:var(--accent); }
+.icon-btn.loved { color:var(--accent); }
+
+.jr-input { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:12px 14px; margin-bottom:16px; }
+.jr-input textarea { width:100%; border:none; outline:none; font-size:13px; font-family:inherit; color:var(--color-text-primary); resize:none; background:transparent; line-height:1.6; }
+.jr-place-inp { width:100%; border:none; outline:none; font-size:12px; font-weight:600; color:var(--accent); background:transparent; margin-bottom:6px; font-family:inherit; }
+.jr-footer { display:flex; align-items:center; justify-content:space-between; margin-top:8px; border-top:0.5px solid var(--color-border-tertiary); padding-top:8px; }
+.mood-btns { display:flex; gap:6px; }
+.mood-btn { font-size:19px; background:none; border:none; cursor:pointer; opacity:.35; transition:all .13s; padding:2px; }
+.mood-btn.sel, .mood-btn:hover { opacity:1; transform:scale(1.15); }
+.jr-save { font-size:12px; font-weight:600; background:#1C1917; color:white; border:none; border-radius:20px; padding:7px 15px; cursor:pointer; }
+.jr-group { margin-bottom:16px; }
+.jr-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--color-text-tertiary); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.jr-label::after { content:''; flex:1; height:0.5px; background:var(--color-border-tertiary); }
+.jr-card { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:12px 14px; margin-bottom:8px; position:relative; }
+.jr-mood { font-size:21px; float:right; margin-left:8px; }
+.jr-place { font-size:11px; font-weight:700; color:var(--accent); margin-bottom:4px; display:flex; align-items:center; gap:4px; }
+.jr-place i { font-size:13px; }
+.jr-text { font-size:13px; line-height:1.6; }
+.jr-del { position:absolute; bottom:10px; right:12px; background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); font-size:14px; }
+.jr-del:hover { color:#A32D2D; }
+
+.bd-summary { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:14px; }
+.bd-stat { background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px; text-align:center; }
+.bd-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--color-text-tertiary); margin-bottom:4px; }
+.bd-val { font-size:19px; font-weight:600; }
+.bd-val.good { color:#0F6E56; } .bd-val.over { color:#A32D2D; }
+.progress { height:8px; background:var(--color-background-secondary); border-radius:20px; margin-bottom:16px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:20px; background:#0F6E56; transition:width .3s; }
+.sub-head { font-size:13px; font-weight:700; margin-bottom:9px; }
+.exp-row { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); padding:10px 13px; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+.exp-icon { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+.exp-info { flex:1; min-width:0; }
+.exp-name { font-size:13px; font-weight:600; }
+.exp-cat { font-size:11px; color:var(--color-text-tertiary); margin-top:1px; }
+.exp-amt { font-size:14px; font-weight:600; }
+.exp-del { background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); font-size:14px; padding:2px; }
+.exp-del:hover { color:#A32D2D; }
+
+.empty-state { text-align:center; padding:3rem 1rem; color:var(--color-text-tertiary); }
+.empty-state i { font-size:36px; display:block; margin-bottom:10px; }
+.empty-state p { font-size:13px; }
+.empty-state .add-btn { display:inline-flex; margin-top:14px; }
+
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:flex-start; justify-content:center; padding:24px 16px; overflow-y:auto; z-index:50; }
+.modal { background:var(--color-background-primary); border-radius:var(--border-radius-lg); border:0.5px solid var(--color-border-tertiary); width:100%; max-width:530px; margin:auto; }
+.modal-header { padding:14px 16px; border-bottom:0.5px solid var(--color-border-tertiary); display:flex; align-items:center; justify-content:space-between; }
+.modal-header h3 { font-size:16px; font-weight:600; }
+.modal-close { background:none; border:none; cursor:pointer; color:var(--color-text-secondary); font-size:20px; padding:2px; }
+.modal-body { padding:16px; }
+.field { margin-bottom:13px; }
+.field label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--color-text-secondary); margin-bottom:5px; }
+.field input, .field textarea, .field select { width:100%; font-size:13px; padding:9px 11px; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); font-family:inherit; background:var(--color-background-primary); color:var(--color-text-primary); }
+.field input:focus, .field textarea:focus, .field select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(194,105,42,.12); }
+.field textarea { resize:vertical; min-height:65px; }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.emoji-picker { display:flex; gap:6px; flex-wrap:wrap; }
+.emoji-opt { width:42px; height:42px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); background:transparent; font-size:20px; cursor:pointer; transition:all .12s; }
+.emoji-opt.sel { border-color:var(--accent); background:#FFF7F0; }
+.color-picker { display:flex; gap:8px; }
+.color-opt { width:32px; height:32px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:transform .1s; }
+.color-opt.sel { border-color:var(--color-text-primary); transform:scale(1.1); }
+.cat-picker { display:flex; gap:6px; flex-wrap:wrap; }
+.cat-opt { font-size:12px; padding:6px 12px; border-radius:20px; border:0.5px solid var(--color-border-secondary); background:transparent; color:var(--color-text-secondary); cursor:pointer; transition:all .12s; }
+.cat-opt.sel { color:white; border-color:transparent; }
+.cat-opt[data-c="food"].sel{background:#C2692A}.cat-opt[data-c="sight"].sel{background:#185FA5}.cat-opt[data-c="night"].sel{background:#3C3489}.cat-opt[data-c="culture"].sel{background:#0F6E56}.cat-opt[data-c="place"].sel{background:#854F0B}.cat-opt[data-c="stay"].sel{background:#993556}.cat-opt[data-c="people"].sel{background:#444441}
+.star-row { display:flex; gap:5px; }
+.star-btn { font-size:22px; background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); padding:2px; }
+.star-btn.lit { color:#EF9F27; }
+.tag-input-row { display:flex; gap:6px; }
+.tag-input-row input { flex:1; }
+.tag-pill { font-size:11px; padding:3px 9px; border-radius:20px; background:var(--color-background-secondary); border:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary); display:flex; align-items:center; gap:4px; }
+.tag-pill button { background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); font-size:13px; padding:0; line-height:1; }
+.modal-footer { padding:12px 16px; border-top:0.5px solid var(--color-border-tertiary); display:flex; justify-content:flex-end; gap:8px; }
+.btn-cancel { font-size:13px; padding:9px 16px; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); background:transparent; color:var(--color-text-secondary); cursor:pointer; font-family:inherit; }
+.btn-cancel:hover { background:var(--color-background-secondary); }
+.btn-save { font-size:13px; padding:9px 18px; background:var(--accent); color:white; border:none; border-radius:var(--border-radius-md); cursor:pointer; font-weight:600; font-family:inherit; }
+.btn-save:hover { opacity:.88; }
+.toggle-row { display:flex; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); overflow:hidden; }
+.toggle-opt { flex:1; padding:8px; font-size:12px; font-weight:600; text-align:center; background:transparent; border:none; cursor:pointer; color:var(--color-text-secondary); transition:all .12s; font-family:inherit; }
+.toggle-opt.sel { background:var(--accent); color:white; }
+.section-divider { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--color-text-tertiary); margin:4px 0 12px; padding-bottom:6px; border-bottom:0.5px solid var(--color-border-tertiary); }
+.dropzone { border:1.5px dashed var(--color-border-secondary); border-radius:var(--border-radius-md); padding:16px; text-align:center; cursor:pointer; transition:all .15s; color:var(--color-text-secondary); }
+.dropzone:hover { border-color:var(--accent); color:var(--accent); background:#FFF7F0; }
+.dropzone i { font-size:24px; display:block; margin-bottom:6px; }
+.dropzone .dz-main { font-size:13px; font-weight:600; }
+.dropzone .dz-sub { font-size:11px; color:var(--color-text-tertiary); margin-top:3px; }
+.doc-list { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+.doc-item, .doc-open { display:flex; align-items:center; gap:10px; background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:8px 10px; }
+.doc-open { cursor:pointer; }
+.doc-open:hover { background:var(--color-background-tertiary); }
+.doc-icon { width:34px; height:34px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; overflow:hidden; }
+.doc-icon img { width:100%; height:100%; object-fit:cover; }
+.doc-icon.pdf{background:#FCEBEB;color:#A32D2D}.doc-icon.img{background:#E1F5EE;color:#085041}.doc-icon.sheet{background:#EAF3DE;color:#27500A}.doc-icon.file{background:#E6F1FB;color:#0C447C}
+.doc-info { flex:1; min-width:0; }
+.doc-name { font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.doc-meta { font-size:10px; color:var(--color-text-tertiary); margin-top:1px; }
+.doc-rm { background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); font-size:15px; padding:2px; flex-shrink:0; }
+.doc-rm:hover { color:#A32D2D; }
+.detail-thumb { width:100%; height:150px; display:flex; align-items:center; justify-content:center; font-size:62px; position:relative; border-radius:var(--border-radius-lg) var(--border-radius-lg) 0 0; }
+.detail-cat-pill { position:absolute; bottom:10px; left:12px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; }
+.detail-name { font-size:19px; font-weight:600; font-family:'Fraunces',serif; }
+.detail-loc { font-size:13px; color:var(--color-text-secondary); display:flex; align-items:center; gap:5px; margin-top:3px; }
+.detail-loc i { font-size:14px; }
+.d-section { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--color-text-tertiary); margin:14px 0 6px; }
+.facts-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.fact { background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:8px 10px; }
+.fact-label { font-size:10px; color:var(--color-text-tertiary); text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+.fact-val { font-size:13px; font-weight:600; }
+.detail-note { font-size:13px; color:var(--color-text-secondary); line-height:1.6; background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:10px 12px; margin-top:5px; }
+.return-badge { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:4px 12px; border-radius:20px; margin-top:6px; }
+.return-yes { background:#E1F5EE; color:#085041; } .return-no { background:#FCEBEB; color:#791F1F; }
+.footer-note { text-align:center; font-size:11px; color:var(--color-text-tertiary); padding:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app">
+    <div style="padding:40px 20px;text-align:center;color:#57534E;font-family:sans-serif">
+      <div style="font-size:40px;margin-bottom:10px">🧭</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:6px">Loading Wander…</div>
+      <div style="font-size:13px">If this message stays on screen, JavaScript may be turned off in this viewer. Try opening the file in Safari or Chrome instead.</div>
+    </div>
+  </div>
+</div>
+<noscript>
+  <div style="padding:40px 20px;text-align:center;font-family:sans-serif;color:#791F1F">
+    This app needs JavaScript to run. Please open the file in a web browser (Safari, Chrome, etc.).
+  </div>
+</noscript>
+<script>
+window.onerror = function(msg, src, line, col){
+  var a = document.getElementById('app');
+  if(a){ a.innerHTML = '<div style="padding:30px 20px;font-family:monospace;font-size:12px;color:#791F1F;white-space:pre-wrap">Something went wrong loading the app:\n\n'+msg+'\n(line '+line+')</div>'; }
+  return false;
+};
+</script>
+<script>
+const CAT = {
+  food:{label:'Food & Drink',emoji:'🍽️',bg:'#FFF0DC',badge:'#FAEEDA',text:'#633806'},
+  sight:{label:'Sightseeing',emoji:'🏛️',bg:'#DCF0FF',badge:'#E6F1FB',text:'#0C447C'},
+  night:{label:'Nightlife',emoji:'🎶',bg:'#F0EDFB',badge:'#EEEDFE',text:'#3C3489'},
+  culture:{label:'Culture',emoji:'🎭',bg:'#E1F5EE',badge:'#E1F5EE',text:'#085041'},
+  place:{label:'Place / Area',emoji:'🗺️',bg:'#FFF3E6',badge:'#FAEEDA',text:'#633806'},
+  stay:{label:'Accommodation',emoji:'🏨',bg:'#FBEAF0',badge:'#FBEAF0',text:'#72243E'},
+  people:{label:'People / Moments',emoji:'🤝',bg:'#F1EFE8',badge:'#D3D1C7',text:'#444441'},
+};
+const EV_CAT = { food:{label:'Food',bg:'#FFF0E0',text:'#A05A1A'}, sight:{label:'Sightseeing',bg:'#E6F1FB',text:'#185FA5'}, stay:{label:'Hotel',bg:'#E1F5EE',text:'#0F6E56'}, vrbo:{label:'VRBO',bg:'#FBEAF0',text:'#993556'}, transport:{label:'Transport',bg:'#F1EFE8',text:'#5F5E5A'}, activity:{label:'Activity',bg:'#EEEDFE',text:'#3C3489'} };
+const EXP_CAT = { food:{label:'Food',bg:'#FFF0E0',color:'#C2692A',icon:'ti-tools-kitchen-2'}, stay:{label:'Accommodation',bg:'#FBEAF0',color:'#993556',icon:'ti-building'}, transport:{label:'Transport',bg:'#E6F1FB',color:'#185FA5',icon:'ti-bus'}, fuel:{label:'Fuel',bg:'#FAEEDA',color:'#854F0B',icon:'ti-gas-station'}, activity:{label:'Activities',bg:'#EEEDFE',color:'#534AB7',icon:'ti-ticket'}, shopping:{label:'Shopping',bg:'#EAF3DE',color:'#3B6D11',icon:'ti-shopping-bag'} };
+const PROPERTY_TYPES = ['Hotel','Boutique Hotel','VRBO','Airbnb Apartment','Hostel','Resort','Villa','B&B','Guesthouse','Other'];
+const DOC_HINTS = { food:'Menus, receipts, reservations', sight:'Tickets, entry passes, brochures', night:'Tickets, set lists, reservations', culture:'Tickets, programmes, guides', place:'Maps, transit passes, guides', stay:'Booking confirmations, invoices', people:'Contact cards, photos, mementos' };
+const COVER_COLORS = ['#FFF0DC','#DCF0FF','#E1F5EE','#FBEAF0','#F0EDFB','#EAF3DE','#F1EFE8'];
+const TRIP_EMOJIS = ['🇵🇹','🗼','🏝️','🗻','🏛️','🌴','🏔️','🕌','🎌','🌉','🏙️','🚤','🐘'];
+const MOODS = ['🤩','😄','😊','😐','😔'];
+
+let trips = [
+  { id:1, name:'Portugal 2025', where:'Lisbon & Porto', emoji:'🇵🇹', color:'#FBEAF0', start:'Jun 12', end:'Jun 19', year:'2025', status:'past',
+    itinerary:[
+      { day:'Day 1', date:'Thursday, June 12', events:[
+        {id:1,time:'09:00',name:'Arrive at Humberto Delgado Airport',detail:'TAP Air Portugal · Flight TP 234',cat:'transport',lat:38.7756,lng:-9.1354,address:'Humberto Delgado Airport, Lisbon'},
+        {id:2,time:'11:30',name:'Check-in · Bairro Alto Hotel',detail:'Rua do Norte 58 · Rooftop & pool',cat:'stay',lat:38.7101,lng:-9.1447,address:'Bairro Alto Hotel, Lisbon'},
+        {id:3,time:'13:00',name:'Lunch at Tasca do Chico',detail:'Traditional fado restaurant',cat:'food',lat:38.7109,lng:-9.1447,address:'Tasca do Chico, Bairro Alto, Lisbon',links:[{label:'Reservation',url:'https://www.thefork.com'},{label:'maps.apple.com',url:'https://maps.apple.com/?q=Tasca+do+Chico+Lisbon'}]},
+        {id:4,time:'15:30',name:'Castelo de São Jorge',detail:'Moorish castle, panoramic views',cat:'sight',lat:38.7139,lng:-9.1335,address:'Castelo de Sao Jorge, Lisbon',links:[{label:'Buy tickets',url:'https://castelodesaojorge.pt'}]},
+        {id:5,time:'19:00',name:'Sunset Fado Show · A Severa',detail:'Reserve in advance',cat:'activity'},
+      ]},
+      { day:'Day 2', date:'Friday, June 13', events:[
+        {id:6,time:'09:30',name:'Pasteis de Belém',detail:'The original custard tarts since 1837',cat:'food',lat:38.6976,lng:-9.2033,address:'Pasteis de Belem, Lisbon'},
+        {id:7,time:'11:00',name:'Mosteiro dos Jerónimos',detail:'UNESCO World Heritage Site',cat:'sight',lat:38.6979,lng:-9.2065,address:'Mosteiro dos Jeronimos, Lisbon'},
+      ]},
+    ], nextEvId:8,
+    memories:[
+      {id:1,name:'Tasca do Chico',location:'Alfama, Lisbon',cat:'food',emoji:'🥧',date:'Jun 12',caption:"Best bacalhau I've ever tasted.",tags:['must-try','local','fado'],rating:5,loved:true,cuisine:'Traditional Portuguese',price:'$$',notes:'Sat at the bar — fado playing live.',willReturn:'yes',docs:[{name:'dinner-receipt.pdf',type:'pdf',size:'86 KB'}]},
+      {id:2,name:'Castelo São Jorge',location:'Central Lisbon',cat:'sight',emoji:'🏰',date:'Jun 12',caption:'Sunset over the red rooftops.',tags:['panoramic','historic'],rating:5,loved:false,built:'11th century',duration:'2 hrs',notes:'Go 30 mins before sunset.',docs:[{name:'entry-ticket.pdf',type:'pdf',size:'120 KB'}]},
+      {id:3,name:'Alfama District',location:'Lisbon',cat:'place',emoji:'🏘️',date:'Jun 12',caption:"Lisbon's oldest neighbourhood.",tags:['neighbourhood','fado'],rating:5,loved:true,placeType:'Neighbourhood',knownFor:'Medieval Moorish quarter, fado',transport:'Tram 28',timeOfDay:'Evening',notes:'Get lost on purpose. Carry cash.',docs:[]},
+      {id:4,name:'Bairro Alto Hotel',location:'Bairro Alto, Lisbon',address:'Praça Luís de Camões 2, 1200-243 Lisboa, Portugal',cat:'stay',emoji:'🛎️',date:'Jun 12–16',caption:'Rooftop pool, incredible views.',tags:['luxury','rooftop'],rating:5,loved:true,propertyType:'Boutique Hotel',checkin:'2025-06-12',checkout:'2025-06-16',roomType:'Deluxe City View',pricePerNight:'$280',amenities:'Rooftop pool, spa, restaurant',willReturn:'yes',notes:'Ask for floors 5–6.',docs:[{name:'booking-confirmation.pdf',type:'pdf',size:'210 KB'}]},
+      {id:5,name:'Casa da Saudade (VRBO)',location:'Mouraria, Lisbon',cat:'stay',emoji:'🏡',date:'Jun 16–19',caption:'Big character. Felt like home.',tags:['vrbo','local'],rating:4,loved:true,propertyType:'VRBO',checkin:'2025-06-16',checkout:'2025-06-19',roomType:'Entire apartment',pricePerNight:'$95',amenities:'Full kitchen, terrace',willReturn:'yes',notes:'Host left wine and a handwritten map.',docs:[{name:'vrbo-reservation.pdf',type:'pdf',size:'156 KB'}]},
+    ], nextMemId:6,
+    journal:[
+      {id:1,day:'Day 1 — June 12',place:'Alfama District',mood:'🤩',text:"This city feels like it's been lived in for centuries — in the best way. Bought roasted chestnuts and got lost in the alleyways."},
+      {id:2,day:'Day 1 — June 12',place:'A Severa',mood:'😊',text:'The fado singer performed barefoot. No electronics — just her voice, two guitars, and a room full of strangers sharing something ancient.'},
+      {id:3,day:'Day 2 — June 13',place:'Belém',mood:'😄',text:'Woke up early to beat the queues. The pastéis de nata are genuinely transcendent. Ate three. No regrets.'},
+    ], nextJrId:4,
+    budget:{ total:2400, expenses:[
+      {id:1,name:'A Severa Restaurant',cat:'food',amount:68,date:'Jun 12'},
+      {id:2,name:'Airport Transfer',cat:'transport',amount:22,date:'Jun 12'},
+      {id:3,name:'Castelo São Jorge Entry',cat:'activity',amount:15,date:'Jun 12'},
+      {id:4,name:'Bairro Alto Hotel (4 nights)',cat:'stay',amount:1120,date:'Jun 12'},
+      {id:5,name:'Pasteis de Belém',cat:'food',amount:9,date:'Jun 13'},
+    ], nextExpId:6 },
+  },
+  { id:2, name:'Japan', where:'Tokyo & Kyoto', emoji:'🎌', color:'#FCEBEB', start:'Oct 3', end:'Oct 15', year:'2025', status:'upcoming',
+    itinerary:[], nextEvId:1, memories:[], nextMemId:1, journal:[], nextJrId:1, budget:{total:5000,expenses:[],nextExpId:1} },
+];
+let nextTripId = 3;
+let currentTripId = null;
+let view = 'trips';
+let activeTab = 'itinerary';
+let filterCat = 'all';
+let editingId = null, detailId = null, editEvent = null, mapInstance = null, editingExpenseId = null, editingJournalId = null;
+let draftCat='food', draftRating=0, draftTags=[], draftDocs=[];
+let tripDraft = {};
+let editingTripId = null;
+let jrMood = '😊';
+let _draft = {};
+
+const STORAGE_KEY='wander_data_v1';
+function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify({trips,nextTripId})); }catch(e){} }
+function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw){ const d=JSON.parse(raw); if(d&&Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; nextTripId=d.nextTripId||(Math.max(0,...trips.map(t=>t.id))+1); } } }catch(e){} }
+function resetData(){ if(confirm('Reset everything back to the sample trips? Your added trips and entries will be removed from this device.')){ try{ localStorage.removeItem(STORAGE_KEY); }catch(e){} location.reload(); } }
+function exportData(){ try{ const blob=new Blob([JSON.stringify({trips,nextTripId},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const now=new Date(); const stamp=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0'); const fname='wander-backup-'+stamp+'.json'; const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); try{ localStorage.setItem('wander_lastbackup', String(Date.now())); }catch(e){} if(view==='trips') render(); setTimeout(()=>alert('Backup saved as "'+fname+'".\n\nCheck your Downloads folder (computer) or the share sheet / Files app (phone). Tip: move it into iCloud Drive or Google Drive so it\'s ready to Restore on your other devices.'),150); }catch(e){ alert('Could not export.'); } }
+function lastBackupStr(){ try{ const ts=localStorage.getItem('wander_lastbackup'); if(!ts) return 'Not backed up yet on this device'; const d=new Date(+ts); return 'Last backup: '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+', '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } }
+function mergeLists(target, incoming, sigFn, idHolder, idKey){ if(!Array.isArray(incoming)) return; if(idHolder[idKey]==null) idHolder[idKey]=(Math.max(0,...target.map(x=>x.id||0))+1); incoming.forEach(item=>{ const sig=sigFn(item); const idx=target.findIndex(x=>sigFn(x)===sig); if(idx===-1){ item.id=idHolder[idKey]++; target.push(item); } else { const cur=target[idx]; if((item.updatedAt||0)>(cur.updatedAt||0)){ item.id=cur.id; target[idx]=item; } } }); }
+function mergeTrips(incoming){ incoming.forEach(it=>{ let ex=trips.find(t=>t.name.toLowerCase()===(it.name||'').toLowerCase()); if(!ex){ it.id=nextTripId++; trips.push(it); return; } ex.memories=ex.memories||[]; ex.journal=ex.journal||[]; ex.itinerary=ex.itinerary||[]; ex.budget=ex.budget||{total:0,expenses:[],nextExpId:1}; ex.budget.expenses=ex.budget.expenses||[]; ex.photos=ex.photos||[]; if(ex.nextPhotoId==null) ex.nextPhotoId=(Math.max(0,...ex.photos.map(p=>p.id||0))+1); (it.photos||[]).forEach(ph=>{ const sig=(ph.url||'').slice(0,80)+'|'+(ph.url||'').length; const exi=ex.photos.findIndex(x=>((x.url||'').slice(0,80)+'|'+(x.url||'').length)===sig); if(exi===-1){ ph.id=ex.nextPhotoId++; ex.photos.push(ph); } else if((ph.updatedAt||0)>(ex.photos[exi].updatedAt||0)){ ph.id=ex.photos[exi].id; ex.photos[exi]=ph; } }); mergeLists(ex.memories, it.memories, m=>[m.name,m.date,m.cat].join('|'), ex, 'nextMemId'); mergeLists(ex.journal, it.journal, j=>[j.day,j.text].join('|'), ex, 'nextJrId'); mergeLists(ex.budget.expenses, it.budget&&it.budget.expenses, e=>[e.name,e.amount,e.date].join('|'), ex.budget, 'nextExpId'); if(it.budget&&it.budget.total>ex.budget.total) ex.budget.total=it.budget.total; (it.itinerary||[]).forEach(idy=>{ let exd=ex.itinerary.find(d=>d.day.toLowerCase()===(idy.day||'').toLowerCase()); if(!exd){ exd={day:idy.day,date:idy.date,events:[]}; ex.itinerary.push(exd); } if(ex.nextEvId==null) ex.nextEvId=1; (idy.events||[]).forEach(evt=>{ const sig=[evt.time,evt.name].join('|'); const exi=exd.events.findIndex(x=>[x.time,x.name].join('|')===sig); if(exi===-1){ evt.id=ex.nextEvId++; exd.events.push(evt); } else if((evt.updatedAt||0)>(exd.events[exi].updatedAt||0)){ evt.id=exd.events[exi].id; exd.events[exi]=evt; } }); exd.events.sort((a,b)=>a.time.localeCompare(b.time)); }); }); }
+function importData(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ try{ const d=JSON.parse(ev.target.result); if(!d||!Array.isArray(d.trips)){ alert('That file does not look like a Wander backup.'); return; } const doMerge=trips.length>0 && confirm('Merge this backup with the trips already on this device?\n\nOK  =  Merge (combine both, no duplicates)\nCancel  =  Replace everything with the backup'); if(doMerge){ mergeTrips(d.trips); } else { trips=d.trips; nextTripId=d.nextTripId||(Math.max(0,...trips.map(t=>t.id))+1); } nextTripId=Math.max(nextTripId||1,(Math.max(0,...trips.map(t=>t.id))+1)); saveState(); currentTripId=null; view='trips'; render(); alert(doMerge?'Backup merged successfully.':'Trips restored successfully.'); }catch(err){ alert('Could not read that backup file.'); } }; r.readAsText(f); e.target.value=''; }
+
+function esc(s){ return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function curTrip(){ return trips.find(t=>t.id===currentTripId); }
+function money(n){ return '$'+Math.round(n).toLocaleString('en-US'); }
+function fmtDate(v){ if(!v) return ''; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v); if(m){ const d=new Date(+m[1],+m[2]-1,+m[3]); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); } return v; }
+function fmtDateLong(v){ if(!v) return ''; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v); if(m){ const d=new Date(+m[1],+m[2]-1,+m[3]); return d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}); } return v; }
+function tripDateStr(t){ const s=fmtDate(t.start),e=fmtDate(t.end); let yr=t.year; const m=/^(\d{4})-/.exec(t.start||''); if(m)yr=m[1]; if(!s&&!e) return yr||''; return s+(e?'–'+e:'')+(yr?', '+yr:''); }
+function docKind(t){ if(t==='img')return{cls:'img',icon:'ti-photo'};if(t==='pdf')return{cls:'pdf',icon:'ti-file-type-pdf'};if(t==='sheet')return{cls:'sheet',icon:'ti-file-spreadsheet'};if(t==='link')return{cls:'file',icon:'ti-link'};return{cls:'file',icon:'ti-file'};}
+function openDoc(url,name){ if(!url) return; if(/^https?:/i.test(url)){ window.open(url,'_blank'); return; } openDataUrl(url,name); }
+function openDataUrl(url,name){ try{ const parts=url.split(','); const mime=(parts[0].match(/data:(.*?);base64/)||[])[1]||'application/octet-stream'; const bin=atob(parts[1]); const arr=new Uint8Array(bin.length); for(let j=0;j<bin.length;j++)arr[j]=bin.charCodeAt(j); const blob=new Blob([arr],{type:mime}); const u=URL.createObjectURL(blob); const w=window.open(u,'_blank'); if(!w){ const a=document.createElement('a'); a.href=u; a.download=name||'file'; document.body.appendChild(a); a.click(); a.remove(); } setTimeout(()=>URL.revokeObjectURL(u),60000); }catch(e){ alert('Could not open this file.'); } }
+let viewingDocs=[];
+function docsFieldHTML(hint){ return `<div class="section-divider">Documents & links</div><div class="dropzone" onclick="document.getElementById('file-inp').click()"><i class="ti ti-cloud-upload"></i><div class="dz-main">Attach files</div><div class="dz-sub">${hint} · PDF, images, any file</div></div><input type="file" id="file-inp" multiple style="display:none" onchange="handleFiles(event)"><div class="tag-input-row" style="margin-top:8px"><input type="text" id="doc-link-inp" placeholder="…or paste a link (https://…)" onkeydown="if(event.key==='Enter'){event.preventDefault();addDocLink()}"><button class="btn-cancel" style="padding:0 12px;font-size:12px" onclick="addDocLink()">Add link</button></div><div class="doc-list" id="doc-list">${draftDocs.map((d,i)=>docRowHTML(d,i)).join('')}</div>`; }
+function addDocLink(){ const inp=document.getElementById('doc-link-inp'); if(!inp) return; let url=inp.value.trim(); if(!url) return; if(!/^https?:\/\//i.test(url)) url='https://'+url; let name=url; try{ name=new URL(url).hostname.replace(/^www\./,'')+new URL(url).pathname.replace(/\/$/,''); }catch(e){} if(name.length>40) name=name.slice(0,40)+'…'; draftDocs.push({name,type:'link',url,size:'link'}); inp.value=''; refreshDocList(); }
+function showDocsViewer(list,title){ viewingDocs=list||[]; if(!viewingDocs.length) return; showModal(`<div class="overlay"><div class="modal" style="max-width:400px"><div class="modal-header"><h3>${title||'Attachments'}</h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="doc-list">${viewingDocs.map((d,i)=>{const k=docKind(d.type);const th=(d.type==='img'&&d.url)?`<img src="${d.url}" alt="">`:`<i class="ti ${k.icon}"></i>`;return `<div class="doc-open" onclick="openViewDoc(${i})" style="cursor:pointer"><div class="doc-icon ${k.cls}">${th}</div><div class="doc-info"><div class="doc-name">${d.name}</div><div class="doc-meta">${d.size||''} · tap to open</div></div><i class="ti ti-external-link" style="color:var(--color-text-tertiary);font-size:15px"></i></div>`;}).join('')}</div></div></div></div>`); }
+function openViewDoc(i){ const d=viewingDocs[i]; if(!d||!d.url) return; if(/^https?:/i.test(d.url)){ window.open(d.url,'_blank'); return; } if(d.type==='img'){ showImageLightbox(i); return; } openDataUrl(d.url,d.name); }
+function showImageLightbox(i){ const d=viewingDocs[i]; if(!d) return; showModal(`<div class="overlay"><div class="modal" style="max-width:520px"><div class="modal-header"><h3>${esc(d.name||'Image')}</h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body" style="text-align:center"><img src="${d.url}" style="max-width:100%;border-radius:var(--border-radius-md)" alt=""><div style="margin-top:12px"><button class="dir-btn" onclick="downloadViewDoc(${i})"><i class="ti ti-download" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Download</button></div></div></div></div>`); }
+function downloadViewDoc(i){ const d=viewingDocs[i]; if(!d||!d.url) return; try{ const parts=d.url.split(','); const mime=(parts[0].match(/data:(.*?);base64/)||[])[1]||'application/octet-stream'; const bin=atob(parts[1]); const arr=new Uint8Array(bin.length); for(let j=0;j<bin.length;j++)arr[j]=bin.charCodeAt(j); const blob=new Blob([arr],{type:mime}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=d.name||'image.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000); }catch(e){ alert('Could not download.'); } }
+function showEventDocs(di,id){ const trip=curTrip(); const d=trip.itinerary[di]; if(!d) return; const ev=d.events.find(e=>e.id===id); if(ev) showDocsViewer(ev.docs,ev.name); }
+function showExpenseDocs(id){ const trip=curTrip(); const e=trip.budget.expenses.find(x=>x.id===id); if(e) showDocsViewer(e.docs,e.name); }
+function directionsUrl(provider,q){ const e=encodeURIComponent(q); if(provider==='apple') return 'https://maps.apple.com/?daddr='+e; if(provider==='google') return 'https://www.google.com/maps/dir/?api=1&destination='+e; if(provider==='waze') return 'https://waze.com/ul?q='+e+'&navigate=yes'; return '#'; }
+function openDirections(provider,id){ const m=curTrip().memories.find(x=>x.id===id); if(!m) return; const q=(m.address&&m.address.trim())?m.address:(m.name+(m.location?', '+m.location:'')); window.open(directionsUrl(provider,q),'_blank'); }
+function directionsChooser(id){ const m=curTrip().memories.find(x=>x.id===id); if(!m) return; showModal(`<div class="overlay"><div class="modal" style="max-width:340px"><div class="modal-header"><h3>Get directions</h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:12px"><i class="ti ti-map-pin" style="font-size:14px;vertical-align:-2px;color:#C2692A"></i> ${m.name}${m.address?' · '+esc(m.address):(m.location?' · '+esc(m.location):'')}</p><div style="display:flex;flex-direction:column;gap:8px"><button class="dir-btn" style="width:100%" onclick="openDirections('apple',${id})">Apple Maps</button><button class="dir-btn" style="width:100%" onclick="openDirections('google',${id})">Google Maps</button><button class="dir-btn" style="width:100%" onclick="openDirections('waze',${id})">Waze</button></div></div></div></div>`); }
+function openEventDirections(provider,di,id){ const trip=curTrip(); const d=trip.itinerary[di]; if(!d) return; const ev=d.events.find(e=>e.id===id); if(!ev) return; const q=(typeof ev.lat==='number'&&typeof ev.lng==='number')?(ev.lat+','+ev.lng):(ev.address||ev.name); window.open(directionsUrl(provider,q),'_blank'); }
+
+function render(){
+  saveState();
+  const app=document.getElementById('app');
+  if(view==='trips'){ renderTrips(app); return; }
+  if(view==='newTrip'){ renderTrips(app); renderTripForm(); return; }
+  if(view==='add'||view==='edit'){ renderTripShell(app); renderMemForm(); return; }
+  if(view==='detail'){ renderTripShell(app); renderDetail(); return; }
+  if(view==='addEvent'){ renderTripShell(app); renderEventForm(); return; }
+  if(view==='addExpense'){ renderTripShell(app); renderExpenseForm(); return; }
+  if(view==='editJournal'){ renderTripShell(app); renderJournalForm(); return; }
+  renderTripShell(app);
+}
+
+function renderTrips(app){
+  clearModal();
+  const sL={past:'Past',upcoming:'Upcoming',active:'Current'}, sC={past:'#5F5E5A',upcoming:'#185FA5',active:'#0F6E56'};
+  app.innerHTML=`
+    <div class="trips-header"><h1>My destinations</h1><p>${trips.length} trip${trips.length!==1?'s':''} · each with its own itinerary, scrapbook, journal & budget</p></div>
+    <div style="display:flex;gap:8px;padding:0 16px 2px;flex-wrap:wrap;align-items:center">
+      <button class="btn-cancel" style="font-size:12px;display:flex;align-items:center;gap:5px" onclick="exportData()"><i class="ti ti-download"></i> Back up</button>
+      <button class="btn-cancel" style="font-size:12px;display:flex;align-items:center;gap:5px" onclick="document.getElementById('import-inp').click()"><i class="ti ti-upload"></i> Restore</button>
+      <input type="file" id="import-inp" accept=".json,application/json" style="display:none" onchange="importData(event)">
+    </div>
+    <div style="padding:0 16px 8px;font-size:11px;color:var(--color-text-tertiary)"><i class="ti ti-clock" style="font-size:12px;vertical-align:-2px"></i> ${lastBackupStr()}</div>
+    <div class="trips-grid">
+      ${trips.map(t=>`
+        <div class="trip-card" onclick="openTrip(${t.id})">
+          <div class="trip-cover" style="background:${t.color}"><span>${t.emoji}</span><span class="trip-status" style="color:${sC[t.status]}">${sL[t.status]}</span><button class="trip-edit" onclick="event.stopPropagation();openEditTrip(${t.id})" aria-label="Edit destination"><i class="ti ti-edit"></i></button></div>
+          <div class="trip-card-body">
+            <div class="trip-card-name">${t.name}</div>
+            <div class="trip-card-loc"><i class="ti ti-map-pin"></i>${t.where}</div>
+            <div class="trip-card-foot"><span class="trip-card-dates">${tripDateStr(t)}</span><span class="trip-card-count"><i class="ti ti-photo"></i>${t.memories.length}</span></div>
+          </div>
+        </div>`).join('')}
+      <div class="new-trip-card" onclick="openNewTrip()"><i class="ti ti-plus"></i><span>New destination</span></div>
+    </div>
+    <div class="footer-note">Wander · your trips are saved automatically on this device. <a href="#" onclick="resetData();return false" style="color:#C2692A">Reset to samples</a></div>`;
+}
+
+function modalWrap(inner){ return `<div class="overlay"><div class="modal">${inner}</div></div>`; }
+function closeModal(){ editEvent=null; editingExpenseId=null; editingJournalId=null; view='shell'; render(); }
+function showModal(html){ let m=document.getElementById('modal-root'); if(!m){ m=document.createElement('div'); m.id='modal-root'; document.body.appendChild(m);} m.innerHTML=html; }
+function clearModal(){ const m=document.getElementById('modal-root'); if(m) m.innerHTML=''; }
+
+function renderTripForm(){
+  const isEdit=!!editingTripId;
+  const STATUS=[['upcoming','Upcoming'],['active','Current'],['past','Past']];
+  showModal(`<div class="overlay"><div class="modal">
+    <div class="modal-header"><h3>${isEdit?'Edit destination':'New destination'}</h3><button class="modal-close" onclick="view='trips';editingTripId=null;render()"><i class="ti ti-x"></i></button></div>
+    <div class="modal-body">
+      <div class="field"><label>Trip name</label><input type="text" id="t-name" placeholder="e.g. Japan Adventure" value="${esc(tripDraft.name)}"></div>
+      <div class="field"><label>Where</label><input type="text" id="t-where" placeholder="e.g. Tokyo & Kyoto" value="${esc(tripDraft.where)}"></div>
+      <div class="row2"><div class="field"><label>Start date${isEdit?' (blank keeps current)':''}</label><input type="date" id="t-start" value="${esc(tripDraft.start)}"></div><div class="field"><label>End date${isEdit?' (blank keeps current)':''}</label><input type="date" id="t-end" value="${esc(tripDraft.end)}"></div></div>
+      <div class="row2"><div class="field"><label>Status</label><select id="t-status">${STATUS.map(([k,l])=>`<option value="${k}" ${tripDraft.status===k?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label>Budget</label><input type="text" id="t-budget" placeholder="e.g. 3000" value="${esc(tripDraft.budget)}"></div></div>
+      <div class="field"><label>Cover icon</label><div class="emoji-picker">${TRIP_EMOJIS.map(e=>`<button class="emoji-opt ${tripDraft.emoji===e?'sel':''}" onclick="pickEmoji('${e}',this)">${e}</button>`).join('')}</div></div>
+      <div class="field"><label>Cover colour</label><div class="color-picker">${COVER_COLORS.map(c=>`<div class="color-opt ${tripDraft.color===c?'sel':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`).join('')}</div></div>
+      ${isEdit?`<button class="btn-cancel" style="color:#A32D2D;border-color:#F0999550;margin-top:4px" onclick="deleteTrip(${editingTripId})"><i class="ti ti-trash" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Delete this destination</button>`:''}
+    </div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="view='trips';editingTripId=null;render()">Cancel</button><button class="btn-save" onclick="saveTrip()">${isEdit?'Save changes':'Create destination'}</button></div>
+  </div></div>`);
+}
+function pickEmoji(e,b){ tripDraft.emoji=e; document.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); }
+function pickColor(c,b){ tripDraft.color=c; document.querySelectorAll('.color-opt').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); }
+function openNewTrip(){ editingTripId=null; tripDraft={name:'',where:'',emoji:'🗺️',color:COVER_COLORS[0],start:'',end:'',year:'',budget:'',status:'upcoming'}; view='newTrip'; render(); }
+function openEditTrip(id){ const t=trips.find(x=>x.id===id); if(!t) return; editingTripId=id; tripDraft={name:t.name,where:(t.where==='—'?'':t.where),emoji:t.emoji,color:t.color,start:/^\d{4}-/.test(t.start||'')?t.start:'',end:/^\d{4}-/.test(t.end||'')?t.end:'',year:t.year,budget:t.budget&&t.budget.total?String(t.budget.total):'',status:t.status||'upcoming'}; view='newTrip'; render(); }
+function deleteTrip(id){ if(confirm('Delete this destination and everything in it (itinerary, scrapbook, journal, budget)? This cannot be undone.')){ trips=trips.filter(t=>t.id!==id); if(currentTripId===id) currentTripId=null; editingTripId=null; view='trips'; clearModal(); render(); } }
+function saveTrip(){
+  const name=(document.getElementById('t-name').value||'').trim(); if(!name){ alert('Please give your trip a name.'); return; }
+  const bval=parseInt((document.getElementById('t-budget').value||'').replace(/[^0-9]/g,''))||0;
+  const st=(document.getElementById('t-start').value||'').trim();
+  const en=(document.getElementById('t-end').value||'').trim();
+  const status=gsel('t-status')||'upcoming';
+  const where=(document.getElementById('t-where').value||'').trim()||'—';
+  if(editingTripId){
+    const t=trips.find(x=>x.id===editingTripId);
+    if(t){ t.name=name; t.where=where; t.emoji=tripDraft.emoji; t.color=tripDraft.color; t.status=status; if(st){ t.start=st; const yr=(st.match(/^(\d{4})-/)||[])[1]; if(yr)t.year=yr; } if(en){ t.end=en; } t.budget=t.budget||{total:0,expenses:[],nextExpId:1}; t.budget.total=bval; }
+    editingTripId=null; view='trips'; clearModal(); render(); return;
+  }
+  const yr=(st.match(/^(\d{4})-/)||[])[1]||'';
+  const t={ id:nextTripId++, name, where, emoji:tripDraft.emoji, color:tripDraft.color, start:st||'TBD', end:en, year:yr, status, itinerary:[], nextEvId:1, memories:[], nextMemId:1, journal:[], nextJrId:1, budget:{total:bval,expenses:[],nextExpId:1}, photos:[], nextPhotoId:1 };
+  trips.push(t); currentTripId=t.id; view='shell'; activeTab='itinerary'; clearModal(); render();
+}
+function openTrip(id){ currentTripId=id; view='shell'; activeTab='itinerary'; filterCat='all'; render(); }
+function backToTrips(){ view='trips'; clearModal(); render(); }
+function setTab(t){ activeTab=t; render(); }
+
+function renderTripShell(app){
+  const trip=curTrip(); if(!trip){ view='trips'; render(); return; }
+  const tabs=[['itinerary','Itinerary','ti-calendar-event'],['scrapbook','Scrapbook','ti-polaroid'],['journal','Journal','ti-notebook'],['budget','Budget & Spending','ti-wallet']];
+  let body='';
+  if(activeTab==='itinerary') body=itineraryPanel(trip);
+  if(activeTab==='scrapbook') body=scrapbookPanel(trip);
+  if(activeTab==='journal') body=journalPanel(trip);
+  if(activeTab==='budget') body=budgetPanel(trip);
+  const addAction={itinerary:'openAddEvent()',scrapbook:'openAdd()',journal:'',budget:'openAddExpense()'}[activeTab];
+  const addLabel={itinerary:'Add Event',scrapbook:'Add Entry',journal:'',budget:'Add Expense'}[activeTab];
+  app.innerHTML=`
+    <div class="top-bar">
+      <div class="tb-left">
+        <button class="back-btn" onclick="backToTrips()" aria-label="All trips"><i class="ti ti-arrow-left"></i></button>
+        <div><div class="trip-title"><span style="font-size:18px">${trip.emoji}</span><span class="nm">${trip.name}</span></div><div class="trip-sub">${trip.where} · ${tripDateStr(trip)}</div></div>
+      </div>
+      ${addLabel?`<button class="add-btn" onclick="${addAction}"><i class="ti ti-plus"></i> ${addLabel}</button>`:''}
+    </div>
+    <div class="tab-strip">${tabs.map(([k,l,i])=>`<div class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')"><i class="ti ${i}"></i>${l}</div>`).join('')}</div>
+    <div class="panel">${body}</div>`;
+  clearModal();
+  if(activeTab==='itinerary'){ setTimeout(initItineraryMap,0); }
+}
+
+function itineraryPanel(trip){
+  if(trip.itinerary.length===0) return `<div class="empty-state"><i class="ti ti-calendar-plus"></i><p>No events scheduled yet for this trip.</p><button class="add-btn" onclick="openAddEvent()"><i class="ti ti-plus"></i> Add your first event</button></div>`;
+  const hasPins=trip.itinerary.some(d=>d.events.some(e=>typeof e.lat==='number'));
+  const mapBlock = hasPins
+    ? `<div id="trip-map" style="height:230px;border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:16px;border:0.5px solid var(--color-border-tertiary);z-index:0"></div>`
+    : `<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:14px;margin-bottom:16px;font-size:12px;color:var(--color-text-secondary);display:flex;align-items:center;gap:8px"><i class="ti ti-map-pin" style="font-size:18px;color:#C2692A"></i> Add an address to an event to drop it on the map.</div>`;
+  return mapBlock + trip.itinerary.map((d,di)=>`
+    <div class="day-header"><div class="day-badge">${d.day}</div><div class="day-date">${d.date}</div></div>
+    ${d.events.map(e=>{const c=EV_CAT[e.cat]||EV_CAT.activity;return `
+      <div class="ev-card"><div class="ev-time">${e.time}</div><div class="ev-content"><div class="ev-name">${e.name}</div>${e.detail?`<div class="ev-detail">${e.detail}</div>`:''}<span class="ev-tag" style="background:${c.bg};color:${c.text}">${c.label}</span>${(e.links&&e.links.length)?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${e.links.map(l=>`<a class="ev-link" href="${l.url}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i> ${l.label}</a>`).join('')}</div>`:''}${(e.address||typeof e.lat==='number')?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-tertiary);margin-right:2px">Directions</span><button class="ev-link" style="background:#F1EFE8;color:#57534E;border:none;cursor:pointer" onclick="openEventDirections('apple',${di},${e.id})">Apple</button><button class="ev-link" style="background:#F1EFE8;color:#57534E;border:none;cursor:pointer" onclick="openEventDirections('google',${di},${e.id})">Google</button><button class="ev-link" style="background:#F1EFE8;color:#57534E;border:none;cursor:pointer" onclick="openEventDirections('waze',${di},${e.id})">Waze</button></div>`:''}${(e.docs&&e.docs.length)?`<div style="margin-top:8px"><button class="ev-link" style="background:#EAF3DE;color:#3B6D11;border:none;cursor:pointer" onclick="showEventDocs(${di},${e.id})"><i class="ti ti-paperclip"></i> ${e.docs.length} attachment${e.docs.length>1?'s':''}</button></div>`:''}</div><div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="icon-btn" onclick="openEditEvent(${di},${e.id})" aria-label="Edit"><i class="ti ti-edit"></i></button><button class="ev-del" onclick="delEvent(${di},${e.id})" aria-label="Delete"><i class="ti ti-trash"></i></button></div></div>`;}).join('')}
+  `).join('');
+}
+
+function scrapbookPanel(trip){
+  ensurePhotos(trip);
+  const cats=['all','photos','place','stay','food','sight','culture','night','people'];
+  const chips=cats.map(c=>{let lbl,n;if(c==='all'){lbl='All';n=trip.memories.length;}else if(c==='photos'){lbl='📷 Photos';n=trip.photos.length;}else{lbl=CAT[c].label;n=trip.memories.filter(m=>m.cat===c).length;}return `<button class="chip ${filterCat===c?'on':''}" onclick="setFilter('${c}')">${lbl} <span style="opacity:.6">${n}</span></button>`;}).join('');
+  let body;
+  if(filterCat==='photos'){ body=photoGalleryHTML(trip); }
+  else { const list=filterCat==='all'?trip.memories:trip.memories.filter(m=>m.cat===filterCat); body=list.length===0?`<div class="empty-state"><i class="ti ti-camera-plus"></i><p>${trip.memories.length===0?'No memories logged yet.':'Nothing in this category.'}</p><button class="add-btn" onclick="openAdd()"><i class="ti ti-plus"></i> Add entry</button></div>`:`<div class="mem-grid">${list.map(m=>memCardHTML(m)).join('')}</div>`; }
+  return `<div class="filter-row">${chips}</div>${body}`;
+}
+function ensurePhotos(trip){ if(!trip.photos) trip.photos=[]; if(trip.nextPhotoId==null) trip.nextPhotoId=(Math.max(0,...trip.photos.map(p=>p.id||0))+1); }
+function photoGalleryHTML(trip){
+  const add=`<input type="file" id="photo-inp" multiple accept="image/*" style="display:none" onchange="handlePhotoFiles(event)"><button class="add-btn" style="margin-bottom:14px" onclick="document.getElementById('photo-inp').click()"><i class="ti ti-photo-plus"></i> Add Photos</button>`;
+  if(trip.photos.length===0){ return add+`<div class="empty-state"><i class="ti ti-photo"></i><p>No photos yet. Tap "Add Photos" to upload from your device — then tap any photo to add a description.</p></div>`; }
+  const grid=`<div class="photo-grid">${trip.photos.slice().reverse().map(p=>`<div class="photo-tile" onclick="openPhoto(${p.id})"><img src="${p.url}" alt="" loading="lazy">${p.caption?`<div class="photo-cap">${esc(p.caption)}</div>`:''}</div>`).join('')}</div>`;
+  return add+grid;
+}
+function handlePhotoFiles(e){ const files=Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/')); const trip=curTrip(); ensurePhotos(trip); let n=files.length; if(!n){e.target.value='';return;} files.forEach(f=>{ const r=new FileReader(); r.onload=ev=>{ trip.photos.push({id:trip.nextPhotoId++,url:ev.target.result,caption:'',entryId:null,addedAt:Date.now(),updatedAt:Date.now()}); n--; if(n===0){ saveState(); render(); } }; r.onerror=()=>{ n--; if(n===0){ saveState(); render(); } }; r.readAsDataURL(f); }); e.target.value=''; }
+function openPhoto(id){ const trip=curTrip(); const p=(trip.photos||[]).find(x=>x.id===id); if(!p) return; const linked=p.entryId?trip.memories.find(m=>m.id===p.entryId):null; showModal(`<div class="overlay"><div class="modal" style="max-width:540px"><div class="modal-header"><h3>Photo</h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><img src="${p.url}" style="width:100%;border-radius:var(--border-radius-md)" alt=""><div>${p.caption?`<div class="detail-note" style="margin-top:12px">${esc(p.caption)}</div>`:`<div style="margin-top:12px;color:var(--color-text-tertiary);font-size:13px">No description yet — tap "Edit description" to add one.</div>`}${linked?`<div style="margin-top:10px;font-size:12px;color:var(--color-text-secondary)"><i class="ti ti-link" style="font-size:13px;vertical-align:-2px"></i> Linked to <a href="#" onclick="event.preventDefault();closeModal();openDetail(${linked.id})" style="color:#C2692A;font-weight:600">${esc(linked.name)}</a></div>`:''}</div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="dir-btn" onclick="editPhoto(${p.id})"><i class="ti ti-edit" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Edit description</button><button class="dir-btn" onclick="downloadPhoto(${p.id})"><i class="ti ti-download" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Download</button><button class="dir-btn" style="color:#A32D2D;border-color:#F0999550" onclick="deletePhoto(${p.id})"><i class="ti ti-trash" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Delete</button></div></div></div></div>`); }
+function editPhoto(id){ const trip=curTrip(); const p=(trip.photos||[]).find(x=>x.id===id); if(!p) return; const opts=`<option value="">— Not linked —</option>`+trip.memories.map(m=>`<option value="${m.id}" ${p.entryId===m.id?'selected':''}>${esc(m.name)}</option>`).join(''); showModal(`<div class="overlay"><div class="modal"><div class="modal-header"><h3>Photo description</h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><img src="${p.url}" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--border-radius-md);margin-bottom:12px" alt=""><div class="field"><label>Description</label><textarea id="ph-cap" rows="3" placeholder="Describe this photo...">${esc(p.caption||'')}</textarea></div><div class="field"><label>Link to a scrapbook entry (optional)</label><select id="ph-entry">${opts}</select></div></div><div class="modal-footer"><button class="btn-cancel" onclick="openPhoto(${p.id})">Cancel</button><button class="btn-save" onclick="savePhotoEdit(${p.id})">Save</button></div></div></div>`); }
+function savePhotoEdit(id){ const trip=curTrip(); const p=(trip.photos||[]).find(x=>x.id===id); if(p){ p.caption=(document.getElementById('ph-cap').value||'').trim(); const ev=document.getElementById('ph-entry').value; p.entryId=ev?parseInt(ev):null; p.updatedAt=Date.now(); } saveState(); render(); openPhoto(id); }
+function deletePhoto(id){ if(confirm('Delete this photo?')){ const trip=curTrip(); trip.photos=(trip.photos||[]).filter(x=>x.id!==id); saveState(); closeModal(); render(); } }
+function downloadPhoto(id){ const trip=curTrip(); const p=(trip.photos||[]).find(x=>x.id===id); if(!p||!p.url) return; try{ const parts=p.url.split(','); const mime=(parts[0].match(/data:(.*?);base64/)||[])[1]||'image/jpeg'; const bin=atob(parts[1]); const arr=new Uint8Array(bin.length); for(let j=0;j<bin.length;j++)arr[j]=bin.charCodeAt(j); const blob=new Blob([arr],{type:mime}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=(p.caption?p.caption.slice(0,30).replace(/[^\w -]/g,''):'photo')+'.'+(mime.split('/')[1]||'jpg'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000); }catch(e){ alert('Could not download.'); } }
+function memCardHTML(m){
+  const cm=CAT[m.cat]; const docs=m.docs||[];
+  const pills=[m.price?`<span class="mem-tag">${m.price}</span>`:'',m.pricePerNight?`<span class="mem-tag">${m.pricePerNight}/night</span>`:'',m.propertyType?`<span class="mem-tag">${m.propertyType}</span>`:'',m.placeType?`<span class="mem-tag">${m.placeType}</span>`:''].filter(Boolean).slice(0,2).join('');
+  return `<div class="mem-card" onclick="openDetail(${m.id})"><div class="mem-thumb" style="background:${cm.bg}"><span style="font-size:46px">${m.emoji||cm.emoji}</span><span class="cat-badge" style="background:${cm.badge};color:${cm.text}">${cm.label}</span>${m.rating?`<span class="rating-badge"><i class="ti ti-star"></i>${m.rating}</span>`:''}${docs.length?`<span class="doc-badge"><i class="ti ti-paperclip"></i>${docs.length}</span>`:''}</div><div class="mem-body"><div class="mem-name">${m.name}</div><div class="mem-loc"><i class="ti ti-map-pin"></i>${m.location}</div><div class="mem-caption">${m.caption}</div><div class="mem-tags">${m.tags.slice(0,2).map(t=>`<span class="mem-tag">#${t}</span>`).join('')}${pills}</div><div class="mem-footer"><span class="mem-date"><i class="ti ti-calendar"></i>${m.date}</span><div class="mem-actions">${(m.cat==='stay'||m.cat==='place')?`<button class="icon-btn" onclick="event.stopPropagation();directionsChooser(${m.id})" aria-label="Directions"><i class="ti ti-navigation"></i></button>`:''}<button class="icon-btn ${m.loved?'loved':''}" onclick="event.stopPropagation();toggleLove(${m.id})" aria-label="Favourite"><i class="ti ti-heart"></i></button><button class="icon-btn" onclick="event.stopPropagation();openEdit(${m.id})" aria-label="Edit"><i class="ti ti-edit"></i></button><button class="icon-btn" onclick="event.stopPropagation();deleteMem(${m.id})" aria-label="Delete"><i class="ti ti-trash"></i></button></div></div></div></div>`;
+}
+
+function journalPanel(trip){
+  const groups={}; trip.journal.forEach(j=>{ (groups[j.day]=groups[j.day]||[]).push(j); });
+  const input=`<div class="jr-input"><input type="text" id="jr-place" class="jr-place-inp" placeholder="📍 Where are you? (e.g. Alfama District)"><textarea id="jr-text" rows="3" placeholder="What's on your mind right now? Write a journal entry..."></textarea><div class="jr-footer"><div class="mood-btns">${MOODS.map(m=>`<button class="mood-btn ${jrMood===m?'sel':''}" onclick="pickMood('${m}',this)">${m}</button>`).join('')}</div><button class="jr-save" onclick="saveJournal()">Save Entry</button></div></div>`;
+  if(trip.journal.length===0) return input+`<div class="empty-state"><i class="ti ti-notebook"></i><p>No journal entries yet. Write your first above.</p></div>`;
+  const body=Object.entries(groups).map(([day,items])=>`<div class="jr-group"><div class="jr-label">${day}</div>${items.map(j=>`<div class="jr-card"><span class="jr-mood">${j.mood}</span>${j.place?`<div class="jr-place"><i class="ti ti-map-pin"></i>${j.place}</div>`:''}<div class="jr-text">${j.text}</div><div style="position:absolute;bottom:10px;right:12px;display:flex;gap:8px"><button class="jr-del" style="position:static" onclick="openEditJournal(${j.id})" aria-label="Edit"><i class="ti ti-edit"></i></button><button class="jr-del" style="position:static" onclick="delJournal(${j.id})" aria-label="Delete"><i class="ti ti-trash"></i></button></div></div>`).join('')}</div>`).join('');
+  return input+body;
+}
+
+function budgetPanel(trip){
+  const b=trip.budget; const spent=b.expenses.reduce((s,e)=>s+e.amount,0); const remaining=b.total-spent;
+  const pct=b.total>0?Math.min(100,Math.round(spent/b.total*100)):0;
+  const byCat={}; b.expenses.forEach(e=>{ byCat[e.cat]=(byCat[e.cat]||0)+e.amount; });
+  const catRows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,amt])=>{const m=EXP_CAT[c];const w=spent>0?Math.round(amt/spent*100):0;return `<div class="exp-row" style="flex-direction:column;align-items:stretch;gap:7px"><div style="display:flex;align-items:center;gap:10px"><div class="exp-icon" style="background:${m.bg}"><i class="ti ${m.icon}" style="color:${m.color};font-size:16px"></i></div><div class="exp-info"><div class="exp-name">${m.label}</div></div><div class="exp-amt">${money(amt)}</div></div><div class="progress" style="margin:0"><div class="progress-fill" style="width:${w}%;background:${m.color}"></div></div></div>`;}).join('');
+  const txnRows=b.expenses.slice().reverse().map(e=>{const m=EXP_CAT[e.cat];return `<div class="exp-row"><div class="exp-icon" style="background:${m.bg}"><i class="ti ${m.icon}" style="color:${m.color};font-size:16px"></i></div><div class="exp-info"><div class="exp-name">${e.name}</div><div class="exp-cat">${m.label} · ${e.date}</div></div><div class="exp-amt">${money(e.amount)}</div>${(e.docs&&e.docs.length)?`<button class="icon-btn" onclick="showExpenseDocs(${e.id})" aria-label="Attachments"><i class="ti ti-paperclip"></i></button>`:''}<button class="icon-btn" onclick="openEditExpense(${e.id})" aria-label="Edit"><i class="ti ti-edit"></i></button><button class="exp-del" onclick="delExpense(${e.id})" aria-label="Delete"><i class="ti ti-trash"></i></button></div>`;}).join('');
+  return `
+    <div class="bd-summary">
+      <div class="bd-stat"><div class="bd-label">Budget</div><div class="bd-val">${money(b.total)}</div></div>
+      <div class="bd-stat"><div class="bd-label">Spent</div><div class="bd-val">${money(spent)}</div></div>
+      <div class="bd-stat"><div class="bd-label">Remaining</div><div class="bd-val ${remaining<0?'over':'good'}">${money(remaining)}</div></div>
+    </div>
+    <div class="progress"><div class="progress-fill" style="width:${pct}%;background:${remaining<0?'#A32D2D':'#0F6E56'}"></div></div>
+    ${b.expenses.length===0?`<div class="empty-state"><i class="ti ti-receipt"></i><p>No expenses logged yet.</p><button class="add-btn" onclick="openAddExpense()"><i class="ti ti-plus"></i> Add expense</button></div>`:`<div class="sub-head">By category</div>${catRows}<div class="sub-head" style="margin-top:16px">Transactions</div>${txnRows}`}`;
+}
+
+function renderDetail(){
+  const trip=curTrip(); const m=trip.memories.find(x=>x.id===detailId); if(!m){view='shell';render();return;}
+  const cm=CAT[m.cat];
+  const stars=Array.from({length:5},(_,i)=>`<span style="color:${i<m.rating?'#EF9F27':'var(--color-text-tertiary)'};font-size:16px;">★</span>`).join('');
+  let f='',ex='';
+  if(m.cat==='food'){f=`${m.cuisine?`<div class="fact"><div class="fact-label">Cuisine</div><div class="fact-val">${m.cuisine}</div></div>`:''}${m.price?`<div class="fact"><div class="fact-label">Price</div><div class="fact-val">${m.price}</div></div>`:''}`;if(m.willReturn)ex=`<div><span class="return-badge ${m.willReturn==='yes'?'return-yes':'return-no'}"><i class="ti ti-${m.willReturn==='yes'?'check':'x'}" style="font-size:13px"></i> ${m.willReturn==='yes'?'Would return':'Would not return'}</span></div>`;}
+  else if(m.cat==='sight'||m.cat==='culture'){f=`${m.built?`<div class="fact"><div class="fact-label">Built / Era</div><div class="fact-val">${m.built}</div></div>`:''}${m.duration?`<div class="fact"><div class="fact-label">Time spent</div><div class="fact-val">${m.duration}</div></div>`:''}`;}
+  else if(m.cat==='place'){f=`${m.placeType?`<div class="fact"><div class="fact-label">Type</div><div class="fact-val">${m.placeType}</div></div>`:''}${m.timeOfDay?`<div class="fact"><div class="fact-label">Best time</div><div class="fact-val">${m.timeOfDay}</div></div>`:''}${m.transport?`<div class="fact" style="grid-column:1/-1"><div class="fact-label">How to get there</div><div class="fact-val">${m.transport}</div></div>`:''}${m.knownFor?`<div class="fact" style="grid-column:1/-1"><div class="fact-label">Known for</div><div class="fact-val">${m.knownFor}</div></div>`:''}`;}
+  else if(m.cat==='stay'){f=`${m.propertyType?`<div class="fact"><div class="fact-label">Property type</div><div class="fact-val">${m.propertyType}</div></div>`:''}${m.pricePerNight?`<div class="fact"><div class="fact-label">Price / night</div><div class="fact-val">${m.pricePerNight}</div></div>`:''}${m.roomType?`<div class="fact"><div class="fact-label">Room type</div><div class="fact-val">${m.roomType}</div></div>`:''}${m.checkin&&m.checkout?`<div class="fact"><div class="fact-label">Dates</div><div class="fact-val">${fmtDate(m.checkin)} → ${fmtDate(m.checkout)}</div></div>`:''}${m.amenities?`<div class="fact" style="grid-column:1/-1"><div class="fact-label">Amenities</div><div class="fact-val">${m.amenities}</div></div>`:''}`;if(m.willReturn)ex=`<div><span class="return-badge ${m.willReturn==='yes'?'return-yes':'return-no'}"><i class="ti ti-${m.willReturn==='yes'?'check':'x'}" style="font-size:13px"></i> ${m.willReturn==='yes'?'Would stay again':'Would not stay again'}</span></div>`;}
+  const docs=m.docs||[];
+  const docsHTML=docs.length?`<div class="d-section">Documents & files <span style="color:var(--color-text-tertiary);font-weight:400">· ${docs.length}</span></div><div class="doc-list">${docs.map(d=>{const k=docKind(d.type);const th=(d.type==='img'&&d.url)?`<img src="${d.url}" alt="">`:`<i class="ti ${k.icon}"></i>`;const cl=d.url?`onclick="openDoc('${d.url}')" style="cursor:pointer"`:'';return `<div class="doc-open" ${cl}><div class="doc-icon ${k.cls}">${th}</div><div class="doc-info"><div class="doc-name">${d.name}</div><div class="doc-meta">${d.size||''}${d.url?' · tap to open':''}</div></div>${d.url?'<i class="ti ti-external-link" style="color:var(--color-text-tertiary);font-size:15px"></i>':''}</div>`;}).join('')}</div>`:'';
+  showModal(`<div class="overlay"><div class="modal"><div class="modal-header"><h3>Memory details</h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="detail-thumb" style="background:${cm.bg}"><span style="font-size:62px">${m.emoji||cm.emoji}</span><span class="detail-cat-pill" style="background:${cm.badge};color:${cm.text}">${cm.label}</span></div><div class="modal-body"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="detail-name">${m.name}</div><div class="detail-loc"><i class="ti ti-map-pin"></i>${m.location}</div></div><div style="text-align:right;flex-shrink:0"><div>${stars}</div><div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">${m.date}</div></div></div>${(m.address||m.location||m.name)?`<div style="margin-top:12px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--color-text-tertiary);margin-bottom:6px">Get directions</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="dir-btn" onclick="openDirections('apple',${m.id})">Apple Maps</button><button class="dir-btn" onclick="openDirections('google',${m.id})">Google Maps</button><button class="dir-btn" onclick="openDirections('waze',${m.id})">Waze</button></div>${m.address?`<div style="font-size:12px;color:var(--color-text-secondary);margin-top:8px"><i class="ti ti-map-pin" style="font-size:13px;vertical-align:-2px"></i> ${m.address}</div>`:''}</div>`:''}${f?`<div class="d-section">Details</div><div class="facts-grid">${f}</div>`:''}${ex}${m.tags.length?`<div class="d-section">Tags</div><div style="display:flex;flex-wrap:wrap;gap:5px">${m.tags.map(t=>`<span class="mem-tag">#${t}</span>`).join('')}</div>`:''}${docsHTML}${m.notes?`<div class="d-section">Notes</div><div class="detail-note">${m.notes}</div>`:''}${m.caption?`<div class="d-section">Caption</div><div class="detail-note" style="font-style:italic">"${m.caption}"</div>`:''}</div><div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Back</button><button class="btn-save" onclick="openEdit(${m.id})"><i class="ti ti-edit" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>Edit</button></div></div></div>`);
+}
+
+function renderMemForm(){
+  const isEdit=view==='edit'; const cm=CAT[draftCat]; let sf='';
+  if(draftCat==='food'){sf=`<div class="section-divider">Restaurant details</div><div class="row2"><div class="field"><label>Cuisine / Type</label><input type="text" id="d-cuisine" placeholder="e.g. Traditional Portuguese" value="${esc(_draft.cuisine||'')}"></div><div class="field"><label>Price range</label><div class="toggle-row">${['$','$$','$$$','$$$$'].map(p=>`<button class="toggle-opt ${_draft.price===p?'sel':''}" onclick="setProp('price','${p}',this)">${p}</button>`).join('')}</div></div></div><div class="field"><label>Would you return?</label><div class="toggle-row" style="max-width:200px"><button class="toggle-opt ${_draft.willReturn==='yes'?'sel':''}" onclick="setProp('willReturn','yes',this)">Yes</button><button class="toggle-opt ${_draft.willReturn==='no'?'sel':''}" onclick="setProp('willReturn','no',this)">Not sure / No</button></div></div>`;}
+  else if(draftCat==='sight'||draftCat==='culture'){sf=`<div class="section-divider">Site details</div><div class="row2"><div class="field"><label>Built / Era</label><input type="text" id="d-built" placeholder="e.g. 16th century" value="${esc(_draft.built||'')}"></div><div class="field"><label>Time spent</label><input type="text" id="d-duration" placeholder="e.g. 2 hrs" value="${esc(_draft.duration||'')}"></div></div>`;}
+  else if(draftCat==='place'){sf=`<div class="section-divider">About this place</div><div class="row2"><div class="field"><label>Place type</label><select id="d-placeType">${['Neighbourhood','Town / Village','Beach','Viewpoint','Market','Park / Garden','Island','Waterfront','Forest / Nature','Other'].map(t=>`<option ${_draft.placeType===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="field"><label>Best time to visit</label><select id="d-timeOfDay">${['Morning','Afternoon','Evening','Night','Anytime'].map(t=>`<option ${_draft.timeOfDay===t?'selected':''}>${t}</option>`).join('')}</select></div></div><div class="field"><label>Known for</label><input type="text" id="d-knownFor" placeholder="e.g. Moorish architecture..." value="${esc(_draft.knownFor||'')}"></div><div class="field"><label>How to get there</label><input type="text" id="d-transport" placeholder="e.g. Tram 28..." value="${esc(_draft.transport||'')}"></div>`;}
+  else if(draftCat==='stay'){sf=`<div class="section-divider">Stay details</div><div class="row2"><div class="field"><label>Property type</label><select id="d-propertyType">${PROPERTY_TYPES.map(t=>`<option ${_draft.propertyType===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="field"><label>Room type</label><input type="text" id="d-roomType" placeholder="e.g. Deluxe City View" value="${esc(_draft.roomType||'')}"></div></div><div class="row3"><div class="field"><label>Arrival</label><input type="date" id="d-checkin" value="${esc(_draft.checkin||'')}"></div><div class="field"><label>Departure</label><input type="date" id="d-checkout" value="${esc(_draft.checkout||'')}"></div><div class="field"><label>Price / night</label><input type="text" id="d-ppn" placeholder="$180" value="${esc(_draft.pricePerNight||'')}"></div></div><div class="field"><label>Amenities</label><input type="text" id="d-amenities" placeholder="e.g. Rooftop pool, spa" value="${esc(_draft.amenities||'')}"></div><div class="field"><label>Would you stay again?</label><div class="toggle-row" style="max-width:200px"><button class="toggle-opt ${_draft.willReturn==='yes'?'sel':''}" onclick="setProp('willReturn','yes',this)">Yes</button><button class="toggle-opt ${_draft.willReturn==='no'?'sel':''}" onclick="setProp('willReturn','no',this)">Not sure / No</button></div></div>`;}
+  const docsForm=docsFieldHTML(DOC_HINTS[draftCat]);
+  showModal(`<div class="overlay"><div class="modal"><div class="modal-header"><h3>${isEdit?'Edit entry':'Log a new memory'} <span style="color:var(--color-text-tertiary);font-weight:400;font-size:13px;font-family:Figtree">· ${curTrip().name}</span></h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="field"><label>Category</label><div class="cat-picker">${Object.entries(CAT).map(([k,v])=>`<button class="cat-opt ${draftCat===k?'sel':''}" data-c="${k}" onclick="setCat('${k}')">${v.emoji} ${v.label}</button>`).join('')}</div></div><div class="section-divider">Basic info</div><div class="row2"><div class="field"><label>Name / Place</label><input type="text" id="d-name" placeholder="e.g. Bairro Alto Hotel" value="${esc(_draft.name||'')}"></div><div class="field"><label>Emoji icon</label><input type="text" id="d-emoji" placeholder="${cm.emoji}" value="${_draft.emoji||''}" maxlength="2" style="font-size:20px;text-align:center"></div></div><div class="row2"><div class="field"><label>Location</label><input type="text" id="d-location" placeholder="Bairro Alto, Lisbon" value="${esc(_draft.location||'')}"></div><div class="field"><label>Date</label><input type="text" id="d-date" placeholder="Jun 12–16" value="${esc(_draft.date||'')}"></div></div><div class="field"><label>Address (for directions)</label><input type="text" id="d-address" placeholder="e.g. Rua do Norte 58, Lisbon — opens in Apple Maps" value="${esc(_draft.address||'')}"></div><div class="field"><label>Caption</label><input type="text" id="d-caption" placeholder="One sentence highlight..." value="${esc(_draft.caption||'')}"></div>${sf}${docsForm}<div class="field" style="margin-top:13px"><label>Personal notes</label><textarea id="d-notes" placeholder="Tips, feelings...">${esc(_draft.notes||'')}</textarea></div><div class="row2"><div class="field"><label>Rating</label><div class="star-row">${[1,2,3,4,5].map(n=>`<button class="star-btn ${n<=draftRating?'lit':''}" onclick="setRating(${n})">★</button>`).join('')}</div></div><div class="field"><label>Tags</label><div class="tag-input-row"><input type="text" id="tag-inp" placeholder="tag + Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag()}"><button class="btn-cancel" style="padding:0 12px;font-size:12px" onclick="addTag()">Add</button></div><div class="mem-tags" id="tag-list" style="margin-top:6px">${draftTags.map((t,i)=>`<span class="tag-pill">#${t}<button onclick="removeTag(${i})" aria-label="Remove">×</button></span>`).join('')}</div></div></div></div><div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveMemory()">${isEdit?'Save changes':'Add to scrapbook'}</button></div></div></div>`);
+}
+
+function renderEventForm(){
+  const ed=editEvent; const ev=ed?ed.ev:null;
+  const linksText=ev&&ev.links?ev.links.map(l=>l.label&&l.label!==l.url?`${l.label} | ${l.url}`:l.url).join('\n'):'';
+  showModal(`<div class="overlay"><div class="modal"><div class="modal-header"><h3>${ed?'Edit event':'Add itinerary event'} <span style="color:var(--color-text-tertiary);font-weight:400;font-size:13px;font-family:Figtree">· ${curTrip().name}</span></h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="row2"><div class="field"><label>Day</label><input type="text" id="e-day" placeholder="Day 1" value="${ed?esc(ed.day):''}" list="daylist"><datalist id="daylist">${curTrip().itinerary.map(d=>`<option value="${d.day}">`).join('')}</datalist></div><div class="field"><label>Date${ed?' (leave blank to keep)':''}</label><input type="date" id="e-date"></div></div><div class="row2"><div class="field"><label>Time</label><input type="text" id="e-time" placeholder="09:00" value="${ev?esc(ev.time):''}"></div><div class="field"><label>Type</label><select id="e-cat">${Object.entries(EV_CAT).map(([k,v])=>`<option value="${k}" ${ev&&ev.cat===k?'selected':''}>${v.label}</option>`).join('')}</select></div></div><div class="field"><label>Event name</label><input type="text" id="e-name" placeholder="e.g. Lunch at Tasca do Chico" value="${ev?esc(ev.name):''}"></div><div class="field"><label>Details (optional)</label><input type="text" id="e-detail" placeholder="Address, notes, confirmation..." value="${ev?esc(ev.detail||''):''}"></div><div class="field"><label>Address for map pin (optional)</label><input type="text" id="e-address" placeholder="e.g. Castelo de São Jorge, Lisbon" value="${ev?esc(ev.address||''):''}"></div><div class="field"><label>Links (optional)</label><textarea id="e-links" placeholder="Paste one URL per line — they become tappable buttons.&#10;Add a label with a pipe, e.g:&#10;Reservation | https://opentable.com/...&#10;https://maps.apple.com/...">${esc(linksText)}</textarea></div>${docsFieldHTML('Confirmations, tickets, boarding passes')}</div><div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveEvent()">${ed?'Save changes':'Add event'}</button></div></div></div>`);
+}
+function renderExpenseForm(){
+  const ex=editingExpenseId?curTrip().budget.expenses.find(e=>e.id===editingExpenseId):null;
+  showModal(`<div class="overlay"><div class="modal"><div class="modal-header"><h3>${ex?'Edit expense':'Add expense'} <span style="color:var(--color-text-tertiary);font-weight:400;font-size:13px;font-family:Figtree">· ${curTrip().name}</span></h3><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="field"><label>What was it?</label><input type="text" id="x-name" placeholder="e.g. Dinner at A Severa" value="${ex?esc(ex.name):''}"></div><div class="row3"><div class="field" style="grid-column:span 2"><label>Category</label><select id="x-cat">${Object.entries(EXP_CAT).map(([k,v])=>`<option value="${k}" ${ex&&ex.cat===k?'selected':''}>${v.label}</option>`).join('')}</select></div><div class="field"><label>Amount ($)</label><input type="text" id="x-amt" placeholder="68" value="${ex?ex.amount:''}"></div></div><div class="field"><label>Date</label><input type="text" id="x-date" placeholder="Jun 12" value="${ex?esc(ex.date):''}"></div>${docsFieldHTML('Receipts, invoices, confirmations')}</div><div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveExpense()">${ex?'Save changes':'Add expense'}</button></div></div></div>`);
+}
+
+function docRowHTML(d,i){const k=docKind(d.type);const th=(d.type==='img'&&d.url)?`<img src="${d.url}" alt="">`:`<i class="ti ${k.icon}"></i>`;return `<div class="doc-item"><div class="doc-icon ${k.cls}">${th}</div><div class="doc-info"><div class="doc-name">${d.name}</div><div class="doc-meta">${d.size||''}</div></div><button class="doc-rm" onclick="removeDoc(${i})" aria-label="Remove"><i class="ti ti-x"></i></button></div>`;}
+function fileType(f){if(f.type.startsWith('image/'))return'img';if(f.type==='application/pdf'||/\.pdf$/i.test(f.name))return'pdf';if(/\.(xls|xlsx|csv)$/i.test(f.name))return'sheet';return'file';}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return Math.round(b/1024)+' KB';return (b/1048576).toFixed(1)+' MB';}
+function handleFiles(e){const files=Array.from(e.target.files||[]);let p=files.length;if(!p)return;files.forEach(f=>{const doc={name:f.name,type:fileType(f),size:fmtSize(f.size)};const r=new FileReader();r.onload=ev=>{doc.url=ev.target.result;draftDocs.push(doc);p--;if(p===0)refreshDocList();};r.onerror=()=>{draftDocs.push(doc);p--;if(p===0)refreshDocList();};r.readAsDataURL(f);});e.target.value='';}
+function refreshDocList(){const l=document.getElementById('doc-list');if(l)l.innerHTML=draftDocs.map((d,i)=>docRowHTML(d,i)).join('');}
+function removeDoc(i){draftDocs.splice(i,1);refreshDocList();}
+function setProp(p,v,btn){_draft[p]=v;btn.closest('.toggle-row').querySelectorAll('.toggle-opt').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');}
+function setCat(c){draftCat=c;_draft.cat=c;renderMemForm();}
+function setRating(n){draftRating=n;document.querySelectorAll('.star-btn').forEach((b,i)=>b.classList.toggle('lit',i<n));}
+function addTag(){const inp=document.getElementById('tag-inp');if(!inp)return;const v=inp.value.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');if(v&&!draftTags.includes(v))draftTags.push(v);inp.value='';const l=document.getElementById('tag-list');if(l)l.innerHTML=draftTags.map((t,i)=>`<span class="tag-pill">#${t}<button onclick="removeTag(${i})" aria-label="Remove">×</button></span>`).join('');}
+function removeTag(i){draftTags.splice(i,1);const l=document.getElementById('tag-list');if(l)l.innerHTML=draftTags.map((t,j)=>`<span class="tag-pill">#${t}<button onclick="removeTag(${j})" aria-label="Remove">×</button></span>`).join('');}
+
+function openAdd(){view='add';editingId=null;_draft={name:'',location:'',cat:'food',emoji:'',date:'',caption:'',tags:[],rating:0,notes:'',willReturn:''};draftTags=[];draftRating=0;draftCat='food';draftDocs=[];render();}
+function openEdit(id){const m=curTrip().memories.find(x=>x.id===id);if(!m)return;view='edit';editingId=id;_draft={...m};draftTags=[...m.tags];draftRating=m.rating;draftCat=m.cat;draftDocs=(m.docs||[]).map(d=>({...d}));render();}
+function openDetail(id){detailId=id;view='detail';render();}
+function gv(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function gsel(id){const el=document.getElementById(id);return el?el.value:'';}
+function saveMemory(){const trip=curTrip();const name=gv('d-name');if(!name){alert('Please add a name.');return;}const base={id:editingId||trip.nextMemId++,name,location:gv('d-location'),address:gv('d-address'),cat:draftCat,emoji:gv('d-emoji')||CAT[draftCat].emoji,date:gv('d-date'),caption:gv('d-caption'),notes:gv('d-notes'),tags:[...draftTags],rating:draftRating,loved:editingId?(trip.memories.find(x=>x.id===editingId)||{}).loved||false:false,willReturn:_draft.willReturn||'',docs:[...draftDocs],updatedAt:Date.now()};if(draftCat==='food')Object.assign(base,{cuisine:gv('d-cuisine'),price:_draft.price||''});if(draftCat==='sight'||draftCat==='culture')Object.assign(base,{built:gv('d-built'),duration:gv('d-duration')});if(draftCat==='place')Object.assign(base,{placeType:gsel('d-placeType'),timeOfDay:gsel('d-timeOfDay'),knownFor:gv('d-knownFor'),transport:gv('d-transport')});if(draftCat==='stay')Object.assign(base,{propertyType:gsel('d-propertyType'),roomType:gv('d-roomType'),checkin:gv('d-checkin'),checkout:gv('d-checkout'),pricePerNight:gv('d-ppn'),amenities:gv('d-amenities')});if(editingId){const i=trip.memories.findIndex(x=>x.id===editingId);if(i>-1)trip.memories[i]=base;}else trip.memories.unshift(base);view='shell';render();}
+function deleteMem(id){const t=curTrip();t.memories=t.memories.filter(x=>x.id!==id);render();}
+function toggleLove(id){const m=curTrip().memories.find(x=>x.id===id);if(m)m.loved=!m.loved;render();}
+function openAddEvent(){editEvent=null;draftDocs=[];view='addEvent';render();}
+function initItineraryMap(){ try{ const el=document.getElementById('trip-map'); if(!el||typeof L==='undefined') return; if(mapInstance){ try{mapInstance.remove();}catch(e){} mapInstance=null; } const trip=curTrip(); if(!trip) return; const pts=[]; trip.itinerary.forEach(d=>d.events.forEach(e=>{ if(typeof e.lat==='number'&&typeof e.lng==='number'){ const c=EV_CAT[e.cat]||EV_CAT.activity; pts.push({lat:e.lat,lng:e.lng,name:e.name,time:e.time,day:d.day,color:c.text}); } })); if(pts.length===0) return; mapInstance=L.map(el,{scrollWheelZoom:false}); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(mapInstance); const bounds=[]; pts.forEach(p=>{ const icon=L.divIcon({className:'',html:'<div style="width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#C2692A;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4)"></div>',iconSize:[18,18],iconAnchor:[9,16],popupAnchor:[0,-14]}); const m=L.marker([p.lat,p.lng],{icon}).addTo(mapInstance); const dd=p.lat+','+p.lng; const au='https://maps.apple.com/?daddr='+dd, gu='https://www.google.com/maps/dir/?api=1&destination='+dd, wu='https://waze.com/ul?ll='+dd+'&navigate=yes'; m.bindPopup('<b>'+p.name+'</b><br>'+p.day+(p.time&&p.time!=='—'?' &middot; '+p.time:'')+'<br><span style="font-size:11px;color:#57534E">Directions: <a href="'+au+'" target="_blank">Apple</a> &middot; <a href="'+gu+'" target="_blank">Google</a> &middot; <a href="'+wu+'" target="_blank">Waze</a></span>'); bounds.push([p.lat,p.lng]); }); if(bounds.length===1){ mapInstance.setView(bounds[0],14); } else { mapInstance.fitBounds(bounds,{padding:[30,30],maxZoom:15}); } setTimeout(()=>{ if(mapInstance) mapInstance.invalidateSize(); },120); }catch(e){} }
+function geocodeAndPin(evId, query){ if(!query) return; fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(query)).then(r=>r.json()).then(d=>{ if(d&&d[0]){ const trip=curTrip(); let found=null; (trip.itinerary||[]).forEach(dd=>dd.events.forEach(e=>{ if(e.id===evId) found=e; })); if(found){ found.lat=parseFloat(d[0].lat); found.lng=parseFloat(d[0].lon); saveState(); if(activeTab==='itinerary'&&view==='shell') render(); } } }).catch(e=>{}); }
+function openEditEvent(di,eid){const trip=curTrip();const d=trip.itinerary[di];if(!d)return;const ev=d.events.find(e=>e.id===eid);if(!ev)return;editEvent={di,ev,day:d.day,date:d.date};draftDocs=(ev.docs||[]).map(x=>({...x}));view='addEvent';render();}
+function parseEventLinks(){return (gv('e-links')||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.indexOf('|');let label,url;if(i>-1){label=l.slice(0,i).trim();url=l.slice(i+1).trim();}else{url=l;label='';}if(!/^https?:\/\//i.test(url))url='https://'+url;if(!label){try{label=new URL(url).hostname.replace(/^www\./,'');}catch(e){label=url;}}return{label,url};});}
+function saveEvent(){const trip=curTrip();const name=gv('e-name');if(!name){alert('Please add an event name.');return;}const day=gv('e-day')||'Day 1';const date=fmtDateLong(gv('e-date'));const links=parseEventLinks();const time=gv('e-time')||'—';const cat=gsel('e-cat')||'activity';const detail=gv('e-detail');const address=gv('e-address');
+  if(editEvent){const oldDay=trip.itinerary[editEvent.di];const prev=editEvent.ev;if(oldDay){oldDay.events=oldDay.events.filter(e=>e.id!==prev.id);}const ev={id:prev.id,time,name,detail,address,cat,links,docs:[...draftDocs],updatedAt:Date.now()};if(address&&address===prev.address){ev.lat=prev.lat;ev.lng=prev.lng;}let dayObj=trip.itinerary.find(d=>d.day.toLowerCase()===day.toLowerCase());if(!dayObj){dayObj={day,date:date||(oldDay&&oldDay.date)||'',events:[]};trip.itinerary.push(dayObj);}else if(date){dayObj.date=date;}dayObj.events.push(ev);dayObj.events.sort((a,b)=>a.time.localeCompare(b.time));trip.itinerary=trip.itinerary.filter(d=>d.events.length>0);const q=address||(name+', '+trip.where);if(address&&(ev.lat==null)){geocodeAndPin(ev.id,q);}editEvent=null;draftDocs=[];view='shell';activeTab='itinerary';render();return;}
+  const ev={id:trip.nextEvId++,time,name,detail,address,cat,links,docs:[...draftDocs],updatedAt:Date.now()};let dayObj=trip.itinerary.find(d=>d.day.toLowerCase()===day.toLowerCase());if(!dayObj){dayObj={day,date,events:[]};trip.itinerary.push(dayObj);}else if(date&&!dayObj.date){dayObj.date=date;}dayObj.events.push(ev);dayObj.events.sort((a,b)=>a.time.localeCompare(b.time));if(address){geocodeAndPin(ev.id,address||(name+', '+trip.where));}draftDocs=[];view='shell';activeTab='itinerary';render();}
+function delEvent(di,eid){const trip=curTrip();const d=trip.itinerary[di];d.events=d.events.filter(e=>e.id!==eid);if(d.events.length===0)trip.itinerary.splice(di,1);render();}
+function pickMood(m,btn){jrMood=m;document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');}
+function openEditJournal(id){const j=curTrip().journal.find(x=>x.id===id);if(!j)return;editingJournalId=id;jrMood=j.mood||'😊';view='editJournal';render();}
+function renderJournalForm(){const j=curTrip().journal.find(x=>x.id===editingJournalId);if(!j){closeModal();return;}showModal(`<div class="overlay"><div class="modal"><div class="modal-header"><h3>Edit journal entry</h3><button class="modal-close" onclick="editingJournalId=null;closeModal()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="field"><label>Where</label><input type="text" id="je-place" placeholder="e.g. Alfama District" value="${esc(j.place||'')}"></div><div class="field"><label>Entry</label><textarea id="je-text" rows="5">${esc(j.text||'')}</textarea></div><div class="field"><label>Mood</label><div class="mood-btns">${MOODS.map(m=>`<button class="mood-btn ${jrMood===m?'sel':''}" onclick="pickMood('${m}',this)">${m}</button>`).join('')}</div></div></div><div class="modal-footer"><button class="btn-cancel" onclick="editingJournalId=null;closeModal()">Cancel</button><button class="btn-save" onclick="saveJournalEdit()">Save changes</button></div></div></div>`);}
+function saveJournalEdit(){const trip=curTrip();const j=trip.journal.find(x=>x.id===editingJournalId);if(j){const text=(document.getElementById('je-text').value||'').trim();if(!text){alert('Entry cannot be empty.');return;}j.text=text;j.place=(document.getElementById('je-place').value||'').trim();j.mood=jrMood;j.updatedAt=Date.now();}editingJournalId=null;jrMood='😊';view='shell';activeTab='journal';render();}
+function saveJournal(){const trip=curTrip();const text=(document.getElementById('jr-text').value||'').trim();if(!text)return;const place=(document.getElementById('jr-place').value||'').trim();trip.journal.push({id:trip.nextJrId++,day:'New entry',place,mood:jrMood,text,updatedAt:Date.now()});jrMood='😊';render();}
+function delJournal(id){const t=curTrip();t.journal=t.journal.filter(j=>j.id!==id);render();}
+function openAddExpense(){editingExpenseId=null;draftDocs=[];view='addExpense';render();}
+function openEditExpense(id){const e=curTrip().budget.expenses.find(x=>x.id===id);if(!e)return;editingExpenseId=id;draftDocs=(e.docs||[]).map(d=>({...d}));view='addExpense';render();}
+function saveExpense(){const trip=curTrip();const name=gv('x-name');if(!name){alert('Please add a description.');return;}const amt=parseFloat((gv('x-amt')||'').replace(/[^0-9.]/g,''))||0;const cat=gsel('x-cat')||'food';const date=gv('x-date')||'—';
+  if(editingExpenseId){const i=trip.budget.expenses.findIndex(x=>x.id===editingExpenseId);if(i>-1){trip.budget.expenses[i]={id:editingExpenseId,name,cat,amount:amt,date,docs:[...draftDocs],updatedAt:Date.now()};}editingExpenseId=null;draftDocs=[];view='shell';activeTab='budget';render();return;}
+  trip.budget.expenses.push({id:trip.budget.nextExpId++,name,cat,amount:amt,date,docs:[...draftDocs],updatedAt:Date.now()});draftDocs=[];view='shell';activeTab='budget';render();}
+function delExpense(id){const t=curTrip();t.budget.expenses=t.budget.expenses.filter(e=>e.id!==id);render();}
+function setFilter(c){filterCat=c;render();}
+
+loadState();
+render();
+</script>
+</body>
+</html>
