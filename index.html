@@ -28,12 +28,12 @@ html { overflow-x:hidden; }
 h1,h2,h3 { font-family:'Fraunces',Georgia,serif; }
 
 .top-bar { background:var(--color-background-primary); border-bottom:0.5px solid var(--color-border-tertiary); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; position:sticky; top:0; z-index:5; }
-.tb-left { display:flex; align-items:center; gap:10px; min-width:0; }
+.tb-left { display:flex; align-items:center; gap:10px; min-width:0; flex:1; }
 .back-btn { background:none; border:0.5px solid var(--color-border-secondary); border-radius:20px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--color-text-secondary); flex-shrink:0; }
 .back-btn:hover { border-color:var(--accent); color:var(--accent); }
 .trip-title { font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px; min-width:0; font-family:'Fraunces',serif; }
 .trip-title span.nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.trip-sub { font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
+.trip-sub { font-size:12px; color:var(--color-text-secondary); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .add-btn { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; padding:8px 15px; border-radius:20px; background:var(--accent); color:white; border:none; cursor:pointer; flex-shrink:0; }
 .add-btn:hover { opacity:.88; }
 .add-btn i { font-size:15px; }
@@ -182,7 +182,7 @@ h1,h2,h3 { font-family:'Fraunces',Georgia,serif; }
 .empty-state { text-align:center; padding:3rem 1rem; color:var(--color-text-tertiary); }
 .empty-state i { font-size:36px; display:block; margin-bottom:10px; }
 .empty-state p { font-size:13px; }
-.empty-state .add-btn { display:inline-flex; margin-top:14px; }
+.empty-state .empty-state .add-btn { display:inline-flex; margin-top:14px; }
 
 .overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:flex-start; justify-content:center; padding:24px 16px; overflow-y:auto; z-index:50; }
 .modal { background:var(--color-background-primary); border-radius:var(--border-radius-lg); border:0.5px solid var(--color-border-tertiary); width:100%; max-width:530px; margin:auto; }
@@ -516,9 +516,9 @@ function renderTripShell(app){
     <div class="top-bar">
       <div class="tb-left">
         <button class="back-btn" onclick="backToTrips()" aria-label="All trips"><i class="ti ti-arrow-left"></i></button>
-        <div><div class="trip-title"><span style="font-size:18px">${trip.emoji}</span><span class="nm">${trip.name}</span></div><div class="trip-sub">${trip.where} · ${tripDateStr(trip)}</div></div>
+        <div style="min-width:0"><div class="trip-title"><span style="font-size:18px">${trip.emoji}</span><span class="nm">${trip.name}</span></div><div class="trip-sub">${trip.where} · ${tripDateStr(trip)}</div></div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <button class="icon-btn" style="font-size:18px;color:#A32D2D" onclick="openEmergency()" aria-label="Emergency & safety"><i class="ti ti-urgent"></i></button>
         <button class="icon-btn" style="font-size:18px" onclick="shareTrip()" aria-label="Share trip"><i class="ti ti-share"></i></button>
         ${addLabel?`<button class="add-btn" onclick="${addAction}"><i class="ti ti-plus"></i> ${addLabel}</button>`:''}
